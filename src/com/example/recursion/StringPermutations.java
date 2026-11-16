@@ -1,183 +1,202 @@
 package com.example.recursion;
 
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-
-public class StringPermutations {
+/**
+ * Task 2 - Recursive String Permutations.
+ *
+ * <p>Generates every permutation of a string, recursively (swap and backtrack) and
+ * iteratively (Heap's algorithm), with an option to exclude duplicate permutations
+ * that arise when the input contains repeated characters.</p>
+ *
+ * <p><b>Complexity.</b> A string of length n has n! orderings and building each result
+ * string costs O(n), so both versions run in O(n &middot; n!) time and need O(n &middot; n!)
+ * space for the output list. The recursive version also uses O(n) call-stack frames;
+ * the iterative version replaces them with an O(n) counter array.</p>
+ */
+public final class StringPermutations {
 
     /**
-     * Public wrapper method to generate permutations[cite: 38].
-     *
-     * @param str   The input string.
-     * @param unique If true, returns only unique permutations (using a Set).
-     * If false, returns all permutations (using a List).
-     * @return A List of all permutations.
+     * Longest input accepted. 10! = 3,628,800 strings already needs a few hundred MB;
+     * 11! would be about 40 million and 13! no longer fits in a Java list.
      */
-    public static List<String> generatePermutationsRecursive(String str, boolean unique) {
-        // Error handling for null or empty input [cite: 41]
-        if (str == null) {
-            throw new IllegalArgumentException("Input string cannot be null.");
-        }
-        if (str.isEmpty()) {
-            // Base case: permutation of an empty string is just an empty list
-            return Collections.emptyList();
-        }
+    public static final int MAX_LENGTH = 10;
 
-        // Use a Set to handle duplicates if 'unique' is true 
-        Collection<String> results = unique ? new HashSet<>() : new ArrayList<>();
-        
-        permuteRecursiveHelper(str.toCharArray(), 0, results);
-        
-        return new ArrayList<>(results);
+    private StringPermutations() {
+        // utility class, not meant to be instantiated
+    }
+
+    // ------------------------------------------------------------------
+    // Recursive solution
+    // ------------------------------------------------------------------
+
+    /**
+     * Returns all permutations of {@code input}, including repeated ones.
+     *
+     * <p><b>Precondition:</b> {@code input} is non-null, non-empty and at most
+     * {@link #MAX_LENGTH} characters long.</p>
+     * <p><b>Postcondition:</b> returns a list of exactly n! strings, each a rearrangement
+     * of all the characters of {@code input}.</p>
+     *
+     * @param input the string to permute
+     * @return every permutation of {@code input}
+     * @throws IllegalArgumentException if the precondition is violated
+     */
+    public static List<String> generatePermutations(String input) {
+        return generatePermutations(input, false);
     }
 
     /**
-     * The core recursive helper function[cite: 39].
-     * It uses the "fix a character and permute the rest" approach with backtracking.
+     * Returns the permutations of {@code input}, optionally without duplicates
+     * (duplicates enhancement).
      *
-     * @param chars   The string as a character array.
-     * @param index   The current index (character) being fixed.
-     * @param results The collection to add permutations to.
+     * <p><b>Precondition:</b> as for {@link #generatePermutations(String)}.</p>
+     * <p><b>Postcondition:</b> if {@code excludeDuplicates} is false, returns all n!
+     * permutations; if true, returns each distinct permutation exactly once, i.e.
+     * n! / (k1! &middot; k2! &middot; ...) strings, where ki is the number of times
+     * each distinct character occurs.</p>
+     *
+     * @param input             the string to permute
+     * @param excludeDuplicates true to return each distinct permutation once
+     * @return the permutations of {@code input}
+     * @throws IllegalArgumentException if the precondition is violated
      */
-    private static void permuteRecursiveHelper(char[] chars, int index, Collection<String> results) {
-        // Base Case: If we've fixed all characters, we have a complete permutation [cite: 13]
+    public static List<String> generatePermutations(String input, boolean excludeDuplicates) {
+        validate(input);
+        List<String> results = new ArrayList<>(factorial(input.length()));
+        permute(input.toCharArray(), 0, excludeDuplicates, results);
+        return results;
+    }
+
+    /**
+     * Recursive helper: positions {@code 0 .. index-1} are already fixed; fill the rest.
+     *
+     * <ul>
+     *   <li><b>Base case:</b> {@code index == chars.length - 1}. Only one character is
+     *       left, so the array is a complete permutation and is recorded.</li>
+     *   <li><b>Recursive step:</b> each remaining character is swapped into position
+     *       {@code index}, the rest is permuted by a recursive call with
+     *       {@code index + 1} (one fewer free position, so the recursion terminates),
+     *       and the swap is undone (backtracking).</li>
+     * </ul>
+     *
+     * <p>When duplicates are excluded, a character value that has already been placed at
+     * this position is skipped, so repeated permutations are never generated at all
+     * (pruning), rather than generated and filtered out afterwards.</p>
+     */
+    private static void permute(char[] chars, int index, boolean excludeDuplicates, List<String> results) {
         if (index == chars.length - 1) {
             results.add(new String(chars));
             return;
         }
 
-        // Recursive Step: [cite: 13]
+        Set<Character> usedAtThisPosition = excludeDuplicates ? new HashSet<>() : null;
         for (int i = index; i < chars.length; i++) {
-            // 1. Swap the current index with the loop character
+            if (excludeDuplicates && !usedAtThisPosition.add(chars[i])) {
+                continue; // this character value was already tried here
+            }
             swap(chars, index, i);
-            
-            // 2. Recurse for the rest of the string
-            permuteRecursiveHelper(chars, index + 1, results);
-            
-            // 3. Backtrack: Swap back to restore the original state for the next loop iteration
-            swap(chars, index, i);
+            permute(chars, index + 1, excludeDuplicates, results);
+            swap(chars, index, i); // backtrack
         }
     }
 
-    /**
-     * Helper method to swap two characters in an array[cite: 14].
-     */
-    private static void swap(char[] chars, int i, int j) {
-        char temp = chars[i];
-        chars[i] = chars[j];
-        chars[j] = temp;
-    }
-
-    // --- Mandatory Enhancement: Non-Recursive Solution --- 
+    // ------------------------------------------------------------------
+    // Non-recursive solution (enhancement)
+    // ------------------------------------------------------------------
 
     /**
-     * Generates permutations using a non-recursive (iterative) algorithm.
-     * This implementation uses Heap's Algorithm.
+     * Iterative version using Heap's algorithm: each permutation is produced from the
+     * previous one with a single swap, and an explicit counter array replaces the
+     * call stack.
      *
-     * @param str   The input string.
-     * @param unique If true, returns only unique permutations.
-     * @return A List of all permutations.
+     * <p><b>Precondition / postcondition:</b> identical to
+     * {@link #generatePermutations(String, boolean)} (the order of the results differs).</p>
+     *
+     * @param input             the string to permute
+     * @param excludeDuplicates true to return each distinct permutation once
+     * @return the permutations of {@code input}
+     * @throws IllegalArgumentException if the precondition is violated
      */
-    public static List<String> generatePermutationsIterative(String str, boolean unique) {
-        // Error handling [cite: 41]
-        if (str == null) {
-            throw new IllegalArgumentException("Input string cannot be null.");
-        }
-        if (str.isEmpty()) {
-            return Collections.emptyList();
-        }
+    public static List<String> generatePermutationsIterative(String input, boolean excludeDuplicates) {
+        validate(input);
+        char[] chars = input.toCharArray();
+        int n = chars.length;
 
-        Collection<String> results = unique ? new HashSet<>() : new ArrayList<>();
-        char[] a = str.toCharArray();
-        int n = a.length;
-        int[] c = new int[n]; // State array for Heap's algorithm
+        List<String> all = new ArrayList<>(factorial(n));
+        all.add(new String(chars));
 
-        results.add(new String(a)); // Add the initial permutation
-
-        int i = 0;
+        int[] counters = new int[n];
+        int i = 1;
         while (i < n) {
-            if (c[i] < i) {
-                if (i % 2 == 0) {
-                    // Even
-                    swap(a, 0, i);
-                } else {
-                    // Odd
-                    swap(a, c[i], i);
-                }
-                results.add(new String(a));
-                c[i]++;
-                i = 0;
+            if (counters[i] < i) {
+                int j = (i % 2 == 0) ? 0 : counters[i];
+                swap(chars, j, i);
+                all.add(new String(chars));
+                counters[i]++;
+                i = 1;
             } else {
-                c[i] = 0;
+                counters[i] = 0;
                 i++;
             }
         }
-        return new ArrayList<>(results);
+
+        return excludeDuplicates ? new ArrayList<>(new LinkedHashSet<>(all)) : all;
+    }
+
+    // ------------------------------------------------------------------
+    // Helpers
+    // ------------------------------------------------------------------
+
+    private static void validate(String input) {
+        if (input == null) {
+            throw new IllegalArgumentException("Input string must not be null.");
+        }
+        if (input.isEmpty()) {
+            throw new IllegalArgumentException("Input string must not be empty.");
+        }
+        if (input.length() > MAX_LENGTH) {
+            throw new IllegalArgumentException("Input is too long (" + input.length()
+                    + " characters); the maximum is " + MAX_LENGTH + ".");
+        }
+    }
+
+    private static void swap(char[] chars, int i, int j) {
+        char tmp = chars[i];
+        chars[i] = chars[j];
+        chars[j] = tmp;
+    }
+
+    /** n! for 0 <= n <= MAX_LENGTH, used to size result lists up front. */
+    static int factorial(int n) {
+        int result = 1;
+        for (int k = 2; k <= n; k++) {
+            result *= k;
+        }
+        return result;
     }
 
     /**
-     * Main method for simple testing and performance comparison.
+     * Small demo: prints the permutations of a string. Pass the string as the first
+     * argument and optionally {@code --unique} to exclude duplicates.
      */
     public static void main(String[] args) {
-        String s = "AAB";
-        System.out.println("--- Recursive Permutations of '" + s + "' ---");
-        List<String> permsRecUnique = generatePermutationsRecursive(s, true);
-        System.out.println("Unique: " + permsRecUnique.size() + " -> " + permsRecUnique);
-
-        List<String> permsRecAll = generatePermutationsRecursive(s, false);
-        System.out.println("All:    " + permsRecAll.size() + " -> " + permsRecAll);
-        
-        System.out.println("\n--- Iterative Permutations of '" + s + "' ---");
-        List<String> permsIterUnique = generatePermutationsIterative(s, true);
-        System.out.println("Unique: " + permsIterUnique.size() + " -> " + permsIterUnique);
-
-        // Performance Comparison 
-        System.out.println("\n--- Performance Comparison ---");
-        String largeString = "ABCDEFGHIJ"; // n=10 (3,628,800 permutations)
-        
-        long startTime = System.nanoTime();
-        generatePermutationsRecursive(largeString, true);
-        long endTime = System.nanoTime();
-        System.out.println("Recursive (n=10): " + (endTime - startTime) / 1_000_000 + " ms");
-
-        startTime = System.nanoTime();
-        generatePermutationsIterative(largeString, true);
-        endTime = System.nanoTime();
-        System.out.println("Iterative (n=10): " + (endTime - startTime) / 1_000_000 + " ms");
+        String input = args.length > 0 ? args[0] : "AAB";
+        boolean unique = args.length > 1 && args[1].equalsIgnoreCase("--unique");
+        try {
+            List<String> recursive = generatePermutations(input, unique);
+            List<String> iterative = generatePermutationsIterative(input, unique);
+            System.out.println("Input        : \"" + input + "\"  (duplicates "
+                    + (unique ? "excluded" : "included") + ")");
+            System.out.println("Recursive    : " + recursive.size() + " -> " + recursive);
+            System.out.println("Iterative    : " + iterative.size() + " -> " + iterative);
+            System.out.println("Same results : " + new HashSet<>(recursive).equals(new HashSet<>(iterative)));
+        } catch (IllegalArgumentException e) {
+            System.err.println("Error: " + e.getMessage());
+        }
     }
-
-    /*
-     * == Time Complexity Analysis == 
-     *
-     * Let N be the length of the input string.
-     *
-     * 1. Recursive Solution:
-     * - The number of permutations for a string of length N is N! (N-factorial).
-     * - In our recursive algorithm, the `permuteRecursiveHelper` function is called at each step
-     * of building the permutation. The total number of calls follows the permutation tree,
-     * leading to O(N!) leaf nodes (actual permutations).
-     * - At each leaf node (base case), we create a new String from the char array, which takes O(N) time.
-     * - Therefore, the total time complexity is O(N * N!).
-     *
-     * 2. Iterative Solution (Heap's Algorithm):
-     * - Heap's algorithm is designed to generate each permutation by performing a constant
-     * number of swaps (O(1)) from the previous permutation.
-     * - It generates all N! permutations.
-     * - However, just like the recursive solution, we still need to create a new String from
-     * the char array for *each* of the N! permutations to store it in our results list.
-     * This string creation takes O(N) time.
-     * - Thus, the time complexity is also O(N * N!).
-     *
-     * 3. Comparison:
-     * - Asymptotically (in Big O notation), both solutions have the same time complexity of O(N * N!).
-     * - In practice, the iterative solution (Heap's) is often faster. This is because it avoids
-     * the overhead of recursive function calls (managing the call stack, passing parameters, etc.).
-     * Our `main` method's performance test demonstrates this: the iterative version typically
-     * runs significantly faster than the recursive one for large strings (e.g., N > 9).
-     */
 }

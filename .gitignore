@@ -1,0 +1,17 @@
+# Eclipse build output
+bin/
+bin-test/
+*.class
+
+# Office lock files and the lab report (submitted on LMS, not tracked)
+~$*
+*.docx
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.metadata/
+
+# IntelliJ
+.idea/
+*.iml
